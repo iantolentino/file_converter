@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import threading
 import sys
+import traceback
+import subprocess
 
 class UniversalPDFConverter:
     def __init__(self, root):
@@ -67,9 +69,20 @@ class UniversalPDFConverter:
                                font=("Arial", 16, "bold"))
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
         
+        # Library Status
+        status_frame = ttk.LabelFrame(main_frame, text="Library Status", padding="5")
+        status_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        
+        status_text = "Available: "
+        available_libs = [lib for lib, available in self.libraries.items() if available]
+        status_text += ", ".join(available_libs) if available_libs else "None"
+        
+        status_label = ttk.Label(status_frame, text=status_text, foreground="green" if available_libs else "red")
+        status_label.pack()
+        
         # Format Selection
         format_frame = ttk.LabelFrame(main_frame, text="Conversion Format", padding="10")
-        format_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        format_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
         formats = [
             ("Word Document (.docx)", "docx"),
@@ -85,7 +98,7 @@ class UniversalPDFConverter:
         
         # Mode Selection
         mode_frame = ttk.LabelFrame(main_frame, text="Conversion Mode", padding="10")
-        mode_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        mode_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
         ttk.Radiobutton(mode_frame, text="Single File", variable=self.conversion_mode, 
                        value="single").grid(row=0, column=0, sticky=tk.W, padx=5)
@@ -96,7 +109,7 @@ class UniversalPDFConverter:
         
         # File Selection
         file_frame = ttk.LabelFrame(main_frame, text="File Selection", padding="10")
-        file_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        file_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         file_frame.columnconfigure(0, weight=1)
         
         # Single file input
@@ -147,7 +160,7 @@ class UniversalPDFConverter:
         
         # Output Location
         output_frame = ttk.LabelFrame(main_frame, text="Output Location", padding="10")
-        output_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        output_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         output_frame.columnconfigure(0, weight=1)
         
         self.output_path = tk.StringVar(value=str(Path.home() / "Documents" / "Converted_Files"))
@@ -159,7 +172,7 @@ class UniversalPDFConverter:
         
         # Options Frame
         options_frame = ttk.LabelFrame(main_frame, text="Conversion Options", padding="10")
-        options_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        options_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
         self.option1 = tk.BooleanVar(value=True)
         self.option2 = tk.BooleanVar(value=False)
@@ -172,24 +185,24 @@ class UniversalPDFConverter:
         # Convert Button
         self.convert_btn = ttk.Button(main_frame, text="Start Conversion", 
                                      command=self.start_conversion)
-        self.convert_btn.grid(row=6, column=0, columnspan=3, pady=20)
+        self.convert_btn.grid(row=7, column=0, columnspan=3, pady=20)
         
         # Progress
         self.progress_frame = ttk.Frame(main_frame)
-        self.progress_frame.grid(row=7, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        self.progress_frame.grid(row=8, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
         self.progress_bar = ttk.Progressbar(self.progress_frame, mode='determinate')
         self.progress_bar.pack(fill=tk.X, expand=True)
         
         self.status_label = ttk.Label(main_frame, text="Ready to convert")
-        self.status_label.grid(row=8, column=0, columnspan=3)
+        self.status_label.grid(row=9, column=0, columnspan=3)
         
         # Results
         results_frame = ttk.LabelFrame(main_frame, text="Conversion Results", padding="10")
-        results_frame.grid(row=9, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        results_frame.grid(row=10, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         results_frame.columnconfigure(0, weight=1)
         results_frame.rowconfigure(0, weight=1)
-        main_frame.rowconfigure(9, weight=1)
+        main_frame.rowconfigure(10, weight=1)
         
         self.results_text = tk.Text(results_frame, height=8, wrap=tk.WORD)
         self.results_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -274,6 +287,13 @@ class UniversalPDFConverter:
         return files
     
     def start_conversion(self):
+        # Debug information
+        print("=== DEBUG INFO ===")
+        print(f"Available libraries: {self.libraries}")
+        print(f"Output format: {self.output_format.get()}")
+        print(f"Python version: {sys.version}")
+        print("==================")
+        
         files = self.get_files_to_convert()
         
         if not files:
@@ -311,11 +331,23 @@ class UniversalPDFConverter:
         
         if result:
             try:
-                import subprocess
-                subprocess.check_call([sys.executable, "-m", "pip", "install", library_name])
+                # Show installation progress
+                self.status_label.config(text=f"Installing {library_name}...")
+                
+                # Install the library
+                if library_name == "pdf2image":
+                    # pdf2image requires additional dependencies
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", "pdf2image", "pillow"])
+                else:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", library_name])
+                
                 messagebox.showinfo("Success", f"{library_name} installed successfully!\nPlease restart the application.")
+                self.status_label.config(text="Library installed - Please restart application")
+                
             except Exception as e:
-                messagebox.showerror("Installation Failed", f"Failed to install {library_name}:\n{str(e)}")
+                error_msg = f"Failed to install {library_name}:\n{str(e)}"
+                messagebox.showerror("Installation Failed", error_msg)
+                self.status_label.config(text="Installation failed")
     
     def convert_files(self, files):
         successful = 0
@@ -342,8 +374,13 @@ class UniversalPDFConverter:
                     counter += 1
                 
                 # Perform conversion based on target format
+                success = False
                 if target_format == "docx":
                     success = self.convert_to_docx(file_path, output_path)
+                    # If primary method fails, try alternative
+                    if not success and self.libraries['fitz']:
+                        self.add_result("Primary method failed, trying alternative...")
+                        success = self.convert_to_docx_alternative(file_path, output_path)
                 elif target_format in ["png", "jpg"]:
                     success = self.convert_to_image(file_path, output_path, target_format)
                 elif target_format == "txt":
@@ -364,22 +401,64 @@ class UniversalPDFConverter:
             except Exception as e:
                 failed += 1
                 failed_files.append(os.path.basename(file_path))
-                self.add_result(f"✗ {os.path.basename(file_path)} - Error: {str(e)}")
+                error_details = f"✗ {os.path.basename(file_path)} - Error: {str(e)}"
+                self.add_result(error_details)
+                print(f"Conversion error details: {traceback.format_exc()}")
         
         # Final update
         self.root.after(0, self.conversion_complete, successful, failed, failed_files)
     
     def convert_to_docx(self, pdf_path, output_path):
-        """Convert PDF to Word document"""
+        """Convert PDF to Word document with better error handling"""
         try:
             from pdf2docx import Converter
+            import traceback
+            
+            print(f"Converting {pdf_path} to {output_path}")  # Debug info
             
             cv = Converter(pdf_path)
             cv.convert(output_path)
             cv.close()
+            print("Conversion successful!")  # Debug info
             return True
         except Exception as e:
-            print(f"DOCX conversion error: {e}")
+            error_msg = f"DOCX conversion error: {str(e)}"
+            print(error_msg)
+            print(traceback.format_exc())  # This will show the full error trace
+            return False
+    
+    def convert_to_docx_alternative(self, pdf_path, output_path):
+        """Alternative method using PyMuPDF for basic text extraction"""
+        try:
+            if not self.libraries['fitz']:
+                return False
+                
+            import fitz  # PyMuPDF
+            
+            print(f"Using alternative conversion for {pdf_path}")
+            
+            doc = fitz.open(pdf_path)
+            text_content = []
+            
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                text = page.get_text()
+                text_content.append(text)
+            
+            doc.close()
+            
+            # Create a simple text file as fallback
+            if output_path.endswith('.docx'):
+                output_path = output_path.replace('.docx', '_alternative.txt')
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write('\n\n'.join(text_content))
+            
+            print("Alternative conversion completed (saved as text)")
+            return True
+            
+        except Exception as e:
+            print(f"Alternative conversion also failed: {e}")
             return False
     
     def convert_to_image(self, pdf_path, output_path, format):
@@ -391,7 +470,10 @@ class UniversalPDFConverter:
             base_name = os.path.splitext(output_path)[0]
             os.makedirs(base_name, exist_ok=True)
             
-            images = convert_from_path(pdf_path, dpi=200, fmt=format.upper())
+            # Use higher DPI for better quality if option is selected
+            dpi = 300 if self.option2.get() else 200
+            
+            images = convert_from_path(pdf_path, dpi=dpi, fmt=format.upper())
             
             for i, image in enumerate(images):
                 if len(images) == 1:
@@ -405,6 +487,7 @@ class UniversalPDFConverter:
             return True
         except Exception as e:
             print(f"Image conversion error: {e}")
+            print(traceback.format_exc())
             return False
     
     def convert_to_text(self, pdf_path, output_path):
@@ -421,7 +504,7 @@ class UniversalPDFConverter:
                 with open(output_path, 'w', encoding='utf-8') as f:
                     f.write(text)
                 return True
-            else:
+            elif self.libraries['pypdf']:
                 # Fallback to PyPDF2
                 import PyPDF2
                 with open(pdf_path, 'rb') as file:
@@ -433,8 +516,11 @@ class UniversalPDFConverter:
                 with open(output_path, 'w', encoding='utf-8') as f:
                     f.write(text)
                 return True
+            else:
+                return False
         except Exception as e:
             print(f"Text conversion error: {e}")
+            print(traceback.format_exc())
             return False
     
     def copy_pdf(self, pdf_path, output_path):
